@@ -41,12 +41,6 @@ RUN apt-get update && apt-get install -y \
 RUN pecl install redis-6.0.2 \
     && docker-php-ext-enable redis
 
-# swoole 
-RUN pecl install swoole \
-    && docker-php-ext-enable swoole
-
-
-
 RUN apt-get install -y librdkafka-dev  \
     && pecl install xdebug rdkafka \
     && docker-php-ext-enable xdebug rdkafka
@@ -63,7 +57,7 @@ RUN apt-get install -y libssl-dev \
 # 配置 Xdebug
 RUN echo "xdebug.mode=debug" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
     && echo "xdebug.client_host=host.docker.internal" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
-    && echo "xdebug.client_port=9004" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+    && echo "xdebug.client_port=9003" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
 
 RUN curl -sS https://getcomposer.org/installer | php \
     && mv composer.phar /usr/local/bin/composer

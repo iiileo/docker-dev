@@ -3,16 +3,6 @@ networks:
     driver: bridge
 
 services:
-  # nginx:
-  #   build: ./nginx
-  #   container_name: nginx
-  #   ports:
-  #     - "80:80"
-  #   volumes:
-  #     - ${CODE_DIR}:/var/www
-  #     - ./nginx/sites:/etc/nginx/conf.d
-  #   networks:
-  #     - backend
 
   caddy:
     build: ./caddy
@@ -25,23 +15,7 @@ services:
       - ./caddy/snippets:/etc/caddy/snippets
     networks:
       - backend
-
-  php-fpm-74:
-    build: ./php-fpm-74
-    container_name: php-fpm74
-    volumes:
-      - ${CODE_DIR}:/var/www
-    networks:
-      - backend
-
-  php-fpm-80:
-    build: ./php-fpm-80
-    container_name: php-fpm80
-    volumes:
-      - ${CODE_DIR}:/var/www
-    networks:
-      - backend
-
+      
   php-fpm-82:
     build: ./php-fpm-82
     container_name: php-fpm82
