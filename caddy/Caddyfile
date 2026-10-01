@@ -8,3 +8,5 @@ import laravel-app foodie.test:80 /var/www/foodie php-fpm-82:9000
 
 # laravel11
 import laravel-app laravel11.test:80 /var/www/laravel11 php-fpm-82:9000
+
+import laravel-app itm.test:80 /var/www/itm php-fpm-82:9000

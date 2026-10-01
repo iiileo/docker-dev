@@ -65,7 +65,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - TZ=${WORKSPACE_TIMEZONE}
     volumes:
-      - ${DATA_PATH}/postgres:/var/lib/postgresql/data
+      - ${DATA_PATH}/postgres:/var/lib/postgresql
     ports:
       - "${POSTGRES_PORT}:5432"
     networks:
@@ -103,3 +103,19 @@ services:
       - "${MAILPIT_WEB_PORT}:8025"
     networks:
       - backend
+
+  rabbitmq:
+    build: ./rabbitmq
+    container_name: rabbitmq
+    hostname: docker-rabbitmq
+    volumes:
+      - ${DATA_PATH}/rabbitmq:/var/lib/rabbitmq
+    ports:
+      - "${RABBITMQ_PORT}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT}:15672"
+    networks:
+      - backend
+    environment:
+      - RABBITMQ_NODENAME=rabbitmq@docker-rabbitmq
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
