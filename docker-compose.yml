@@ -37,6 +37,16 @@ services:
     networks:
       - backend
 
+  php-fpm-84:
+    build: ./php-fpm-84
+    container_name: php-fpm84
+    ports:
+      - "9084:9003"
+    volumes:
+      - ${CODE_DIR}:/var/www
+    networks:
+      - backend
+
   mysql:
     build:
       context: ./mysql

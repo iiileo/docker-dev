@@ -2,65 +2,95 @@ FROM php:8.3-fpm
 
 WORKDIR /var/www
 
-RUN apt-get update && apt-get install -y \
-    libfreetype6-dev \
-    libjpeg-dev \
-    libpng-dev \
-    libonig-dev \
-    libzip-dev \
-    libicu-dev \
-    libxml2-dev \
-    libxslt1-dev \
-    zlib1g-dev \
-    libmemcached11 \
-    libmemcachedutil2 \
-    libmemcached-dev \
-    # igbinary \
-    # msgpack \
-    build-essential \
-    zip \
-    unzip \
-    git \
-    wget \
-    procps \
-    vim \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j$(nproc) gd \
-    # && docker-php-ext-install -j$(nproc) opcache \
-    && docker-php-ext-install -j$(nproc) bcmath \
-    && docker-php-ext-install -j$(nproc) intl \
-    && docker-php-ext-install -j$(nproc) pdo_mysql \
-    && docker-php-ext-install -j$(nproc) mysqli \
-    && docker-php-ext-install -j$(nproc) sockets \
-    && docker-php-ext-install -j$(nproc) soap \
-    && docker-php-ext-install -j$(nproc) zip \
-    && docker-php-ext-install -j$(nproc) xsl \
-    && docker-php-ext-install -j$(nproc) pcntl
-# && docker-php-ext-install -j$(nproc) xmlrpc
+ENV DEBIAN_FRONTEND=noninteractive
 
-RUN pecl install redis-6.0.2 \
-    && docker-php-ext-enable redis
+# 使用国内 Debian apt 源（清华，http 避免代理 HTTPS 证书问题）
+RUN set -eux; \
+    find /etc/apt -type f \( -name '*.list' -o -name '*.sources' \) -exec sed -i \
+        -e 's|https\?://deb.debian.org|http://mirrors.tuna.tsinghua.edu.cn|g' \
+        -e 's|https\?://security.debian.org|http://mirrors.tuna.tsinghua.edu.cn|g' \
+        -e 's|https\?://cdn-fastly.deb.debian.org|http://mirrors.tuna.tsinghua.edu.cn|g' \
+        {} +; \
+    printf '%s\n' \
+        'Acquire::Retries "5";' \
+        'Acquire::http::Pipeline-Depth "0";' \
+        'Acquire::https::Pipeline-Depth "0";' \
+        > /etc/apt/apt.conf.d/80-retries
 
-RUN apt-get install -y librdkafka-dev  \
-    && pecl install xdebug rdkafka \
-    && docker-php-ext-enable xdebug rdkafka
+# 系统依赖 + 内置扩展 + PECL 扩展 + Composer
+RUN set -eux; \
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/*; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        $PHPIZE_DEPS \
+        libfreetype6-dev \
+        libjpeg62-turbo-dev \
+        libpng-dev \
+        libonig-dev \
+        libzip-dev \
+        libicu-dev \
+        libxml2-dev \
+        libxslt1-dev \
+        zlib1g-dev \
+        pkg-config \
+        libssl-dev \
+        libsasl2-dev \
+        libmemcached-dev \
+        libcurl4-openssl-dev \
+        librdkafka-dev \
+        libmagickwand-dev \
+        libgomp1 \
+        build-essential \
+        zip \
+        unzip \
+        git \
+        wget \
+        procps \
+        vim \
+        curl \
+        ca-certificates; \
+    pkg-config --exists zlib; \
+    # 本地 HTTPS 代理证书不可信：pecl/imagick 构建期会访问 github
+    printf 'insecure\n' > /root/.curlrc; \
+    printf 'check_certificate = off\n' > /root/.wgetrc; \
+    git config --global http.sslVerify false; \
+    docker-php-ext-configure gd --with-freetype --with-jpeg; \
+    docker-php-ext-install -j"$(nproc)" \
+        gd \
+        bcmath \
+        intl \
+        pdo_mysql \
+        mysqli \
+        sockets \
+        soap \
+        zip \
+        xsl \
+        pcntl; \
+    # pecl REST 不稳定；直接下 tgz（-k 兼容本地 HTTPS 代理）
+    for pkg in redis memcached mongodb imagick xdebug rdkafka; do \
+        curl -fsSLk --retry 5 --retry-all-errors --retry-delay 2 \
+            -o "/tmp/${pkg}.tgz" "https://pecl.php.net/get/${pkg}"; \
+        printf '\n\n\n\n\n\n\n\n' | pecl install "/tmp/${pkg}.tgz"; \
+        rm -f "/tmp/${pkg}.tgz"; \
+    done; \
+    docker-php-ext-enable \
+        redis \
+        memcached \
+        mongodb \
+        imagick \
+        xdebug \
+        rdkafka; \
+    curl -fsSLk -o /usr/local/bin/composer https://mirrors.aliyun.com/composer/composer.phar; \
+    chmod +x /usr/local/bin/composer; \
+    rm -rf /var/lib/apt/lists/* /tmp/pear ~/.pearrc
 
-# mongodb
-RUN apt-get install -y libssl-dev \
-    && pecl install mongodb \
-    && docker-php-ext-enable mongodb
-
-# ImageMagick
-# RUN pecl install imagick \
-#     && docker-php-ext-enable imagick
-
-# 配置 Xdebug
-RUN echo "xdebug.mode=debug" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
-    && echo "xdebug.client_host=host.docker.internal" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini \
-    && echo "xdebug.client_port=9003" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
-
-RUN curl -sS https://getcomposer.org/installer | php \
-    && mv composer.phar /usr/local/bin/composer
+# Xdebug
+RUN printf '%s\n' \
+        'xdebug.mode=debug' \
+        'xdebug.client_host=host.docker.internal' \
+        'xdebug.client_port=9003' \
+        >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
 
 COPY php.ini /usr/local/etc/php/
 
